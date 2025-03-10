@@ -1,6 +1,8 @@
 use std::cell::Cell;
+use std::sync::mpsc::channel;
+use std::thread;
 use std::time::{Duration, Instant};
-use rdev::{grab, simulate, Button, Event, EventType, Key, SimulateError};
+use rdev::{grab, simulate, Button, Event, EventType, Key};
 
 struct Throttle<F> {
     f: F,
@@ -77,11 +79,21 @@ impl Toggle {
     }
 }
 
+struct MouseClickEvent;
 
 fn listener() {
-    let mouse_click = Throttle::new(|| -> Result<(), SimulateError> {
-        simulate(&EventType::ButtonPress(Button::Left))?;
-        simulate(&EventType::ButtonRelease(Button::Left))
+    let (tx, rx) = channel();
+
+    let handle = thread::spawn(move || {
+        while let Ok(_) = rx.recv() {
+            simulate(&EventType::ButtonPress(Button::Left)).unwrap();
+            thread::sleep(Duration::from_millis(1));
+            simulate(&EventType::ButtonRelease(Button::Left)).unwrap();
+        }
+    });
+
+    let mouse_click = Throttle::new(move ||{
+        tx.send(MouseClickEvent).unwrap();
     }, Duration::from_millis(50));
 
     let toggle = Toggle::new();
@@ -93,9 +105,7 @@ fn listener() {
 
         if toggle.is_toggled() {
             if let EventType::Wheel { delta_x: 0, delta_y: _ }  = event.event_type {
-                if let Some(Err(err)) = mouse_click.call() {
-                    println!("{:?}", err);
-                }
+                mouse_click.call();
                 return None;
             }
         }
@@ -106,8 +116,10 @@ fn listener() {
     if let Err(error) = grab(callback) {
         println!("Error: {:?}", error);
     }
+
+    handle.join().unwrap();
 }
 
 fn main() {
-    listener();
+    listener()
 }
