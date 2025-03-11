@@ -1,7 +1,8 @@
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::sync::mpsc::channel;
 use std::thread;
 use std::time::{Duration, Instant};
+use circular_buffer::CircularBuffer;
 use rdev::{grab, simulate, Button, Event, EventType, Key};
 
 struct Throttle<F> {
@@ -33,18 +34,33 @@ impl <T, F: Fn() -> T> Throttle<F> {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+struct TimedKeyEvent {
+    event_type: EventType,
+    time: Instant,
+}
+
+impl TimedKeyEvent {
+    fn new(event_type: EventType) -> Self {
+        Self {
+            event_type,
+            time: Instant::now(),
+        }
+    }
+}
+
 struct Toggle {
     toggled: Cell<bool>,
     max_duration: Duration,
-    previous: Cell<Option<Instant>>,
+    buffer: RefCell<CircularBuffer<4, TimedKeyEvent>>,
 }
 
 impl Toggle {
     fn new() -> Self {
         Self {
             toggled: Cell::new(false),
-            max_duration: Duration::from_millis(200),
-            previous: Cell::new(None),
+            max_duration: Duration::from_millis(250),
+            buffer: RefCell::new(CircularBuffer::new()),
         }
     }
 
@@ -61,19 +77,24 @@ impl Toggle {
         self.toggled.get()
     }
 
-    fn track_double_press(&self) {
-        match self.previous.get() {
-            None => self.previous.set(Some(Instant::now())),
-            Some(previous) => {
-                match previous.elapsed() <= self.max_duration {
-                    true => {
-                        self.previous.set(None);
-                        self.toggle();
-                    }
-                    false => {
-                        self.previous.set(Some(Instant::now()));
-                    }
-                }
+    fn track_double_press(&self, event_type: EventType) {
+        let mut buffer = self.buffer.borrow_mut();
+        buffer.push_back(TimedKeyEvent::new(event_type));
+
+        if let (
+            Some(TimedKeyEvent { event_type: EventType::KeyPress(Key::ShiftLeft), time: start }),
+            Some(TimedKeyEvent { event_type: EventType::KeyRelease(Key::ShiftLeft), time: _ }),
+            Some(TimedKeyEvent { event_type: EventType::KeyPress(Key::ShiftLeft), time: _ }),
+            Some(TimedKeyEvent { event_type: EventType::KeyRelease(Key::ShiftLeft), time: end }),
+        ) = (
+            buffer.get(0),
+            buffer.get(1),
+            buffer.get(2),
+            buffer.get(3)
+        ) {
+            if end.duration_since(*start) <= self.max_duration {
+                buffer.clear();
+                self.toggle();
             }
         }
     }
@@ -99,8 +120,8 @@ fn listener() {
     let toggle = Toggle::new();
 
     let callback = move |event: Event| -> Option<Event> {
-        if let EventType::KeyPress(Key::ShiftLeft) = event.event_type {
-            toggle.track_double_press();
+        if let EventType::KeyPress(Key::ShiftLeft) | EventType::KeyRelease(Key::ShiftLeft) = event.event_type {
+            toggle.track_double_press(event.event_type);
         }
 
         if toggle.is_toggled() {
@@ -121,5 +142,6 @@ fn listener() {
 }
 
 fn main() {
+    // foo();
     listener()
 }
