@@ -8,7 +8,7 @@ pub struct Throttle<T, F: Fn() -> T> {
     previous: Cell<Instant>,
 }
 
-impl <T, F: Fn() -> T> Throttle<T, F> {
+impl<T, F: Fn() -> T> Throttle<T, F> {
     pub fn new(f: F, min_duration: Duration) -> Self {
         let previous = Cell::new(Instant::now() - min_duration);
         Self {

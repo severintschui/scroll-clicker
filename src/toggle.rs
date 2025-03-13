@@ -36,16 +36,24 @@ impl Toggle {
         buffer.push_back(TimedKeyEvent::new(event_type));
 
         if let (
-            Some(TimedKeyEvent { event_type: EventType::KeyPress(Key::ShiftLeft), time: start }),
-            Some(TimedKeyEvent { event_type: EventType::KeyRelease(Key::ShiftLeft), time: _ }),
-            Some(TimedKeyEvent { event_type: EventType::KeyPress(Key::ShiftLeft), time: _ }),
-            Some(TimedKeyEvent { event_type: EventType::KeyRelease(Key::ShiftLeft), time: end }),
-        ) = (
-            buffer.get(0),
-            buffer.get(1),
-            buffer.get(2),
-            buffer.get(3)
-        ) {
+            Some(TimedKeyEvent {
+                event_type: EventType::KeyPress(Key::ShiftLeft),
+                time: start,
+            }),
+            Some(TimedKeyEvent {
+                event_type: EventType::KeyRelease(Key::ShiftLeft),
+                time: _,
+            }),
+            Some(TimedKeyEvent {
+                event_type: EventType::KeyPress(Key::ShiftLeft),
+                time: _,
+            }),
+            Some(TimedKeyEvent {
+                event_type: EventType::KeyRelease(Key::ShiftLeft),
+                time: end,
+            }),
+        ) = (buffer.get(0), buffer.get(1), buffer.get(2), buffer.get(3))
+        {
             if end.duration_since(*start) <= self.max_duration {
                 buffer.clear();
                 self.toggle();
