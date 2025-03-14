@@ -1,6 +1,7 @@
 mod throttle;
 mod toggle;
 
+use clap::Parser;
 use rdev::{Button, Event, EventType, Key, grab, simulate};
 use std::sync::mpsc::channel;
 use std::thread;
@@ -11,7 +12,7 @@ use toggle::Toggle;
 
 struct MouseClickTrigger;
 
-fn listener() {
+fn listener(args: Args) {
     let (tx, rx) = channel();
 
     // for Windows, it's necessary to simulate events in another thread
@@ -28,7 +29,7 @@ fn listener() {
         move || {
             tx.send(MouseClickTrigger).unwrap();
         },
-        Duration::from_millis(50),
+        Duration::from_millis(args.click_duration),
     );
 
     let toggle = Toggle::new();
@@ -61,6 +62,16 @@ fn listener() {
     handle.join().unwrap();
 }
 
+#[derive(Parser, Debug)]
+#[command(version, long_about = None)]
+struct Args {
+    /// Minimum duration between clicks in milliseconds
+    #[arg(short, long, default_value_t = 50)]
+    click_duration: u64,
+}
+
 fn main() {
-    listener()
+    let args = Args::parse();
+
+    listener(args);
 }

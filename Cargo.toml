@@ -2,7 +2,9 @@
 name = "scroll-clicker"
 version = "0.1.0"
 edition = "2024"
+description = "App for mapping scroll inputs to left mouse clicks"
 
 [dependencies]
 rdev={version = "0.5.3", features = ["unstable_grab"]}
 circular-buffer = "1.0.0"
+clap = { version = "4.5.32", features = ["derive"] }
